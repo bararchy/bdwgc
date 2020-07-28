@@ -2557,7 +2557,7 @@ STATIC ptr_t GC_unmap_start(ptr_t start, size_t bytes)
 
 /* Compute end address for an unmap operation on the indicated  */
 /* block.                                                       */
-STATIC ptr_t GC_unmap_end(ptr_t start, size_t bytes)
+GC_INNER ptr_t GC_unmap_end(ptr_t start, size_t bytes)
 {
     return (ptr_t)((word)(start + bytes) & ~(GC_page_size - 1));
 }

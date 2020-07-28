@@ -1858,6 +1858,7 @@ void GC_apply_to_all_blocks(void (*fn)(struct hblk *h, word client_data),
                         /* allocated heap block.                        */
 GC_INNER struct hblk * GC_next_used_block(struct hblk * h);
                         /* Return first in-use block >= h       */
+GC_INNER struct hblk * GC_next_block(struct hblk * h);
 GC_INNER struct hblk * GC_prev_block(struct hblk * h);
                         /* Return last block <= h.  Returned block      */
                         /* is managed by GC, but may or may not be in   */
@@ -2324,8 +2325,10 @@ GC_EXTERN GC_bool GC_print_back_height;
 
 #ifdef USE_MUNMAP
   /* Memory unmapping: */
+  GC_INNER struct hblk * GC_get_block_ending_at(struct hblk *h);
   GC_INNER void GC_unmap_old(void);
   GC_INNER void GC_merge_unmapped(void);
+  GC_INNER ptr_t GC_unmap_end(ptr_t start, size_t bytes);
   GC_INNER void GC_unmap(ptr_t start, size_t bytes);
   GC_INNER void GC_remap(ptr_t start, size_t bytes);
   GC_INNER void GC_unmap_gap(ptr_t start1, size_t bytes1, ptr_t start2,
@@ -2503,6 +2506,7 @@ GC_EXTERN signed_word GC_bytes_found;
 
 #ifdef USE_MUNMAP
   GC_EXTERN int GC_unmap_threshold; /* defined in allchblk.c */
+  GC_EXTERN int GC_num_unmapped_regions;
   GC_EXTERN GC_bool GC_force_unmap_on_gcollect; /* defined in misc.c */
 #endif
 
