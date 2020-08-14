@@ -427,14 +427,15 @@ STATIC void GC_add_to_fl(struct hblk *h, hdr *hhdr)
 GC_INNER int GC_unmap_threshold = MUNMAP_THRESHOLD;
 STATIC int GC_num_unmapped_regions = 0;
 
-/* Return number of unmapped regions if the mapped block h is unmapped. */
-STATIC int GC_num_unmapped_regions_after_unmap(struct hblk *h, hdr *hhdr)
+/* Return number of unmapped regions if the block h is changed      */
+/* from its current state of mapped/unmapped to the opposite state. */
+STATIC int GC_calc_num_unmapped_regions(struct hblk *h, hdr *hhdr)
 {
     struct hblk * prev;
     struct hblk * next;
     GC_bool prev_unmapped = FALSE;
     GC_bool next_unmapped = FALSE;
-    int unmapped;
+    int change;
 
     prev = GC_get_block_ending_at(h);
     next = GC_next_block((struct hblk *) ((ptr_t)h + hhdr->hb_sz));
@@ -451,64 +452,28 @@ STATIC int GC_num_unmapped_regions_after_unmap(struct hblk *h, hdr *hhdr)
       next_unmapped = !IS_MAPPED(nexthdr);
     }
 
-    unmapped = GC_num_unmapped_regions;
     if (prev_unmapped && next_unmapped) {
-      /* Merge left + middle + right unmapped regions. */
-      unmapped--;
+      /* If h unmapped: merge two unmapped regions into one. */
+      /* If h remapped: split one unmapped region into two.  */
+      change = IS_MAPPED(hhdr) ? -1 : +1;
     } else if (prev_unmapped || next_unmapped) {
-      /* Merge with left or right unmapped region. */
+      /* If h unmapped: merge with prev or next unmapped region.    */
+      /* If h remapped: reduce either prev or next unmapped region. */
+      /* Either way, no change to the number of unmapped regions.   */
+      change = 0;
     } else {
-      /* Isolated unmapped region. */
-      unmapped++;
+      /* If h unmapped: create an isolated unmapped region. */
+      /* If h remapped: remove an isolated unmapped region. */
+      change = IS_MAPPED(hhdr) ? +1 : -1;
     }
-    return unmapped;
+    return GC_num_unmapped_regions + change;
 }
 
-/* Return number of unmapped regions if the unmapped block h is remapped. */
-STATIC int GC_num_unmapped_regions_after_remap(struct hblk *h, hdr *hhdr)
+/* Update GC_num_unmapped_regions assuming the block h changes      */
+/* from its current state of mapped/unmapped to the opposite state. */
+STATIC void GC_maintain_num_unmapped_regions(struct hblk *h, hdr *hhdr)
 {
-    struct hblk * prev;
-    struct hblk * next;
-    GC_bool prev_unmapped = FALSE;
-    GC_bool next_unmapped = FALSE;
-    int unmapped;
-
-    prev = GC_get_block_ending_at(h);
-    next = GC_next_block((struct hblk *) ((ptr_t)h + hhdr->hb_sz));
-    /* Ensure next is contiguous with h. */
-    if ((ptr_t)next != GC_unmap_end((ptr_t)h, (size_t)hhdr->hb_sz)) {
-      next = 0;
-    }
-    if (prev != 0) {
-      hdr * prevhdr = HDR(prev);
-      prev_unmapped = !IS_MAPPED(prevhdr);
-    }
-    if (next != 0) {
-      hdr * nexthdr = HDR(next);
-      next_unmapped = !IS_MAPPED(nexthdr);
-    }
-
-    unmapped = GC_num_unmapped_regions;
-    if (prev_unmapped && next_unmapped) {
-      /* Contiguous unmapped region split into two. */
-      unmapped++;
-    } else if (prev_unmapped || next_unmapped) {
-      /* Prev or next unmapped region reduced in size. */
-    } else {
-      /* Isolated unmapped region becomes mapped. */
-      unmapped--;
-    }
-    return unmapped;
-}
-
-STATIC void GC_maintain_count_for_unmap(struct hblk *h, hdr *hhdr)
-{
-    GC_num_unmapped_regions = GC_num_unmapped_regions_after_unmap(h, hhdr);
-}
-
-STATIC void GC_maintain_count_for_remap(struct hblk *h, hdr *hhdr)
-{
-    GC_num_unmapped_regions = GC_num_unmapped_regions_after_remap(h, hhdr);
+    GC_num_unmapped_regions = GC_calc_num_unmapped_regions(h, hhdr);
 }
 
 /* Unmap blocks that haven't been recently touched.  This is the only way */
@@ -540,7 +505,7 @@ GC_INNER void GC_unmap_old(void)
           /* Continue with unmapping the block only if it will not      */
           /* create too many unmapped regions, or if unmapping reduces  */
           /* the number of regions.                                     */
-          int count = GC_num_unmapped_regions_after_unmap(h, hhdr);
+          int count = GC_calc_num_unmapped_regions(h, hhdr);
           if (count >= GC_UNMAPPED_REGIONS_SOFT_LIMIT
               && count >= GC_num_unmapped_regions)
             break;
@@ -583,21 +548,21 @@ GC_INNER void GC_merge_unmapped(void)
             if (IS_MAPPED(hhdr) && !IS_MAPPED(nexthdr)) {
               /* make both consistent, so that we can merge */
                 if (size > nextsize) {
-                  GC_maintain_count_for_remap(next, nexthdr);
+                  GC_maintain_num_unmapped_regions(next, nexthdr);
                   GC_remap((ptr_t)next, nextsize);
                 } else {
-                  GC_maintain_count_for_unmap(h, hhdr);
+                  GC_maintain_num_unmapped_regions(h, hhdr);
                   GC_unmap((ptr_t)h, size);
                   GC_unmap_gap((ptr_t)h, size, (ptr_t)next, nextsize);
                   hhdr -> hb_flags |= WAS_UNMAPPED;
                 }
             } else if (IS_MAPPED(nexthdr) && !IS_MAPPED(hhdr)) {
               if (size > nextsize) {
-                GC_maintain_count_for_unmap(next, nexthdr);
+                GC_maintain_num_unmapped_regions(next, nexthdr);
                 GC_unmap((ptr_t)next, nextsize);
                 GC_unmap_gap((ptr_t)h, size, (ptr_t)next, nextsize);
               } else {
-                GC_maintain_count_for_remap(h, hhdr);
+                GC_maintain_num_unmapped_regions(h, hhdr);
                 GC_remap((ptr_t)h, size);
                 hhdr -> hb_flags &= ~WAS_UNMAPPED;
                 hhdr -> hb_last_reclaimed = nexthdr -> hb_last_reclaimed;
@@ -850,7 +815,7 @@ GC_allochblk_nth(size_t sz, int kind, unsigned flags, int n, int may_split)
                   /* Make sure it's mapped before we mangle it. */
 #                   ifdef USE_MUNMAP
                       if (!IS_MAPPED(hhdr)) {
-                        GC_maintain_count_for_remap(hbp, hhdr);
+                        GC_maintain_num_unmapped_regions(hbp, hhdr);
                         GC_remap((ptr_t)hbp, (size_t)hhdr->hb_sz);
                         hhdr -> hb_flags &= ~WAS_UNMAPPED;
                       }
@@ -925,7 +890,7 @@ GC_allochblk_nth(size_t sz, int kind, unsigned flags, int n, int may_split)
             if( size_avail >= size_needed ) {
 #               ifdef USE_MUNMAP
                   if (!IS_MAPPED(hhdr)) {
-                    GC_maintain_count_for_remap(hbp, hhdr);
+                    GC_maintain_num_unmapped_regions(hbp, hhdr);
                     GC_remap((ptr_t)hbp, (size_t)hhdr->hb_sz);
                     hhdr -> hb_flags &= ~WAS_UNMAPPED;
                     /* Note: This may leave adjacent, mapped free blocks. */
