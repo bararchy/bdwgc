@@ -426,49 +426,45 @@ STATIC int GC_num_unmapped_regions = 0;
 
 STATIC GC_bool GC_decide_to_unmap(struct hblk *h, hdr *hhdr)
 {
-    struct hblk *prev = GC_get_block_ending_at(h);
-    struct hblk *next = GC_next_block((struct hblk *) ((ptr_t)h + hhdr->hb_sz));
-    /* XXX how to check if next is contiguous with h? */
-    if ((ptr_t) next != GC_unmap_end((ptr_t)h, hhdr->hb_sz)) {
+    struct hblk * prev;
+    struct hblk * next;
+    GC_bool prev_unmapped = FALSE;
+    GC_bool next_unmapped = FALSE;
+    int unmapped;
+
+    prev = GC_get_block_ending_at(h);
+    next = GC_next_block((struct hblk *) ((ptr_t)h + hhdr->hb_sz));
+    /* Ensure next is contiguous with h. */
+    if ((ptr_t)next != GC_unmap_end((ptr_t)h, hhdr->hb_sz)) {
       next = 0;
     }
 
-    int prev_was_unmapped = 0;
-    int next_was_unmapped = 0;
     if (prev != 0) {
-      hdr *prevhdr = HDR(prev);
-      prev_was_unmapped = (prevhdr->hb_flags & WAS_UNMAPPED);
+      hdr * prevhdr = HDR(prev);
+      prev_unmapped = !IS_MAPPED(prevhdr);
     }
     if (next != 0) {
       hdr *nexthdr = HDR(next);
-      next_was_unmapped = (nexthdr->hb_flags & WAS_UNMAPPED);
+      next_unmapped = !IS_MAPPED(nexthdr);
     }
 
-    int unmapped_regions = GC_num_unmapped_regions;
-    if (prev_was_unmapped && next_was_unmapped) {
+    unmapped = GC_num_unmapped_regions;
+    if (prev_unmapped && next_unmapped) {
       /* Merge left + middle + right */
-      unmapped_regions--;
-    } else if (prev_was_unmapped || next_was_unmapped) {
+      unmapped--;
+    } else if (prev_unmapped || next_unmapped) {
       /* Merge with left or right */
     } else {
       /* Isolated unmapped region */
-      unmapped_regions++;
+      unmapped++;
     }
 
-    if (unmapped_regions <= GC_UNMAPPED_REGIONS_SOFT_LIMIT ||
-        unmapped_regions < GC_num_unmapped_regions) {
-      GC_num_unmapped_regions = unmapped_regions;
-      if (TRUE) {
-        fprintf(stderr, "GC_decide_to_unmap: unmapped regions = %d\n",
-          GC_num_unmapped_regions);
-      }
+    if (unmapped <= GC_UNMAPPED_REGIONS_SOFT_LIMIT ||
+        unmapped < GC_num_unmapped_regions) {
+      GC_num_unmapped_regions = unmapped;
       return TRUE;
     }
 
-    if (TRUE) {
-      fprintf(stderr, "GC_decide_to_unmap: too many unmapped regions %d\n",
-        unmapped_regions);
-    }
     return FALSE;
 }
 
@@ -502,11 +498,6 @@ STATIC void GC_maintain_count_for_remap(struct hblk *p, size_t size)
     } else {
       /* Isolated unmapped region becomes mapped. */
       GC_num_unmapped_regions--;
-    }
-
-    if (TRUE) {
-      fprintf(stderr, "GC_maintain_count_for_remap: unmapped regions = %d\n",
-        GC_num_unmapped_regions);
     }
 }
 
