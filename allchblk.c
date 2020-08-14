@@ -354,8 +354,8 @@ STATIC struct hblk * GC_free_block_ending_at(struct hblk *h)
     return 0;
 }
 
-/* HACK */
-GC_INNER struct hblk * GC_get_block_ending_at(struct hblk *h)
+/* Return a pointer to the block ending at h, if any.   */
+STATIC struct hblk * GC_get_block_ending_at(struct hblk *h)
 {
     struct hblk * p = h - 1;
     hdr * phdr;
@@ -418,11 +418,11 @@ STATIC void GC_add_to_fl(struct hblk *h, hdr *hhdr)
 #   endif
 
 /* GC_unmap_old will avoid creating more than this many unmapped regions, */
-/* but an unmapped region may be split again so exceeding the limit. */
+/* but an unmapped region may be split again so exceeding the limit.      */
 #define GC_UNMAPPED_REGIONS_SOFT_LIMIT 2048
 
 GC_INNER int GC_unmap_threshold = MUNMAP_THRESHOLD;
-GC_INNER int GC_num_unmapped_regions = 0;
+STATIC int GC_num_unmapped_regions = 0;
 
 STATIC GC_bool GC_decide_to_unmap(struct hblk *h, hdr *hhdr)
 {

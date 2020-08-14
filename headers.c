@@ -369,7 +369,9 @@ GC_INNER struct hblk * GC_next_used_block(struct hblk *h)
     return(0);
 }
 
-/* HACK */
+/* Get the next block whose address is at least h.              */
+/* Return 0 if there is none.                                   */
+/* Unlike GC_next_used_block, this may return a free block.     */
 GC_INNER struct hblk * GC_next_block(struct hblk *h)
 {
     REGISTER bottom_index * bi;
@@ -403,7 +405,7 @@ GC_INNER struct hblk * GC_next_block(struct hblk *h)
 
 /* Get the last (highest address) block whose address is        */
 /* at most h.  Return 0 if there is none.                       */
-/* Unlike the above, this may return a free block.              */
+/* Unlike GC_next_used_block, this may return a free block.     */
 GC_INNER struct hblk * GC_prev_block(struct hblk *h)
 {
     bottom_index * bi;
