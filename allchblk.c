@@ -419,7 +419,10 @@ STATIC void GC_add_to_fl(struct hblk *h, hdr *hhdr)
 
 /* GC_unmap_old will avoid creating more than this many unmapped regions, */
 /* but an unmapped region may be split again so exceeding the limit.      */
-#define GC_UNMAPPED_REGIONS_SOFT_LIMIT 2048
+/* XXX this is arbitrary */
+/* The default limit of vm.max_map_count is 65535 (or 65530?) so using    */
+/* one quarter of this resource seems reasonable?                         */
+#define GC_UNMAPPED_REGIONS_SOFT_LIMIT 16384
 
 GC_INNER int GC_unmap_threshold = MUNMAP_THRESHOLD;
 STATIC int GC_num_unmapped_regions = 0;
