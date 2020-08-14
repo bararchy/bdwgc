@@ -501,6 +501,11 @@ STATIC int GC_num_unmapped_regions_after_remap(struct hblk *h, hdr *hhdr)
     return unmapped;
 }
 
+STATIC void GC_maintain_count_for_unmap(struct hblk *h, hdr *hhdr)
+{
+    GC_num_unmapped_regions = GC_num_unmapped_regions_after_unmap(h, hhdr);
+}
+
 STATIC void GC_maintain_count_for_remap(struct hblk *h, hdr *hhdr)
 {
     GC_num_unmapped_regions = GC_num_unmapped_regions_after_remap(h, hhdr);
@@ -554,10 +559,6 @@ GC_INNER void GC_merge_unmapped(void)
 {
     int i;
 
-    /* XXX update GC_num_unmapped_regions */
-    //ABORT("NYI update GC_num_unmapped_regions in GC_merge_unmapped");
-    return;
-
     for (i = 0; i <= N_HBLK_FLS; ++i) {
       struct hblk *h = GC_hblkfreelist[i];
 
@@ -582,17 +583,21 @@ GC_INNER void GC_merge_unmapped(void)
             if (IS_MAPPED(hhdr) && !IS_MAPPED(nexthdr)) {
               /* make both consistent, so that we can merge */
                 if (size > nextsize) {
+                  GC_maintain_count_for_remap(next, nexthdr);
                   GC_remap((ptr_t)next, nextsize);
                 } else {
+                  GC_maintain_count_for_unmap(h, hhdr);
                   GC_unmap((ptr_t)h, size);
                   GC_unmap_gap((ptr_t)h, size, (ptr_t)next, nextsize);
                   hhdr -> hb_flags |= WAS_UNMAPPED;
                 }
             } else if (IS_MAPPED(nexthdr) && !IS_MAPPED(hhdr)) {
               if (size > nextsize) {
+                GC_maintain_count_for_unmap(next, nexthdr);
                 GC_unmap((ptr_t)next, nextsize);
                 GC_unmap_gap((ptr_t)h, size, (ptr_t)next, nextsize);
               } else {
+                GC_maintain_count_for_remap(h, hhdr);
                 GC_remap((ptr_t)h, size);
                 hhdr -> hb_flags &= ~WAS_UNMAPPED;
                 hhdr -> hb_last_reclaimed = nexthdr -> hb_last_reclaimed;
