@@ -468,20 +468,19 @@ STATIC GC_bool GC_decide_to_unmap(struct hblk *h, hdr *hhdr)
     return FALSE;
 }
 
-/* XXX p or h for var? */
-STATIC void GC_maintain_count_for_remap(struct hblk *p, size_t size)
+STATIC void GC_maintain_count_for_remap(struct hblk *h, size_t size)
 {
-    hdr * phdr;
+    hdr * hhdr;
     struct hblk * prev;
     struct hblk * next;
     GC_bool prev_unmapped = FALSE;
     GC_bool next_unmapped = FALSE;
 
-    prev = GC_get_block_ending_at(p);
-    next = GC_next_block((struct hblk *) ((ptr_t)p + size));
+    prev = GC_get_block_ending_at(h);
+    next = GC_next_block((struct hblk *) ((ptr_t)h + size));
     /* Ensure next is contiguous with h. */
-    phdr = HDR(p);
-    if ((ptr_t)next != GC_unmap_end((ptr_t)p, phdr->hb_sz)) {
+    hhdr = HDR(h);
+    if ((ptr_t)next != GC_unmap_end((ptr_t)h, hhdr->hb_sz)) {
       next = 0;
     }
 
