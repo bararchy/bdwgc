@@ -468,32 +468,36 @@ STATIC GC_bool GC_decide_to_unmap(struct hblk *h, hdr *hhdr)
     return FALSE;
 }
 
+/* XXX p or h for var? */
 STATIC void GC_maintain_count_for_remap(struct hblk *p, size_t size)
 {
-    ptr_t endp = (ptr_t)p + size;
-    struct hblk *prev = GC_get_block_ending_at(p);
-    struct hblk *next = GC_next_block((struct hblk *) endp);
-    /* XXX how to check if next is contiguous with h? */
-    hdr * phdr = HDR(p);
-    if ((ptr_t) next != GC_unmap_end((ptr_t) p, phdr->hb_sz)) {
+    hdr * phdr;
+    struct hblk * prev;
+    struct hblk * next;
+    GC_bool prev_unmapped = FALSE;
+    GC_bool next_unmapped = FALSE;
+
+    prev = GC_get_block_ending_at(p);
+    next = GC_next_block((struct hblk *) ((ptr_t)p + size));
+    /* Ensure next is contiguous with h. */
+    phdr = HDR(p);
+    if ((ptr_t)next != GC_unmap_end((ptr_t)p, phdr->hb_sz)) {
       next = 0;
     }
 
-    int prev_was_unmapped = 0;
-    int next_was_unmapped = 0;
     if (prev != 0) {
-      hdr *prevhdr = HDR(prev);
-      prev_was_unmapped = (prevhdr->hb_flags & WAS_UNMAPPED);
+      hdr * prevhdr = HDR(prev);
+      prev_unmapped = !IS_MAPPED(prevhdr);
     }
     if (next != 0) {
-      hdr *nexthdr = HDR(next);
-      next_was_unmapped = (nexthdr->hb_flags & WAS_UNMAPPED);
+      hdr * nexthdr = HDR(next);
+      next_unmapped = !IS_MAPPED(nexthdr);
     }
 
-    if (prev_was_unmapped && next_was_unmapped) {
+    if (prev_unmapped && next_unmapped) {
       /* Contiguous unmapped region split into two. */
       GC_num_unmapped_regions++;
-    } else if (prev_was_unmapped || next_was_unmapped) {
+    } else if (prev_unmapped || next_unmapped) {
       /* Prev or next unmapped region reduced in size. */
     } else {
       /* Isolated unmapped region becomes mapped. */
