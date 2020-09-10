@@ -326,35 +326,7 @@ GC_INLINE void GC_remove_from_fl(hdr *hhdr)
   GC_remove_from_fl_at(hhdr, GC_hblk_fl_from_blocks(divHBLKSZ(hhdr->hb_sz)));
 }
 
-/* Return a pointer to the free block ending just before h, if any.     */
-STATIC struct hblk * GC_free_block_ending_at(struct hblk *h)
-{
-    struct hblk * p = h - 1;
-    hdr * phdr;
-
-    GET_HDR(p, phdr);
-    while (0 != phdr && IS_FORWARDING_ADDR_OR_NIL(phdr)) {
-        p = FORWARDED_ADDR(p,phdr);
-        phdr = HDR(p);
-    }
-    if (0 != phdr) {
-        if(HBLK_IS_FREE(phdr)) {
-            return p;
-        } else {
-            return 0;
-        }
-    }
-    p = GC_prev_block(h - 1);
-    if (p /* != NULL */) { /* CPPCHECK */
-      phdr = HDR(p);
-      if (HBLK_IS_FREE(phdr) && (ptr_t)p + phdr -> hb_sz == (ptr_t)h) {
-        return p;
-      }
-    }
-    return 0;
-}
-
-/* Return a pointer to the block ending at h, if any.   */
+/* Return a pointer to the block ending just before h, if any.  */
 STATIC struct hblk * GC_get_block_ending_at(struct hblk *h)
 {
     struct hblk * p = h - 1;
@@ -370,8 +342,23 @@ STATIC struct hblk * GC_get_block_ending_at(struct hblk *h)
     }
     p = GC_prev_block(h - 1);
     if (p /* != NULL */) { /* CPPCHECK */
+        phdr = HDR(p);
+        if ((ptr_t)p + phdr -> hb_sz == (ptr_t)h) {
+            return p;
+        }
+    }
+    return 0;
+}
+
+/* Return a pointer to the free block ending just before h, if any.     */
+STATIC struct hblk * GC_free_block_ending_at(struct hblk *h)
+{
+    struct hblk * p = GC_get_block_ending_at(h);
+    hdr * phdr;
+
+    if (p /* != NULL */) { /* CPPCHECK */
       phdr = HDR(p);
-      if ((ptr_t)p + phdr -> hb_sz == (ptr_t)h) {
+      if (HBLK_IS_FREE(phdr)) {
         return p;
       }
     }
