@@ -427,15 +427,15 @@ STATIC void GC_add_to_fl(struct hblk *h, hdr *hhdr)
 GC_INNER int GC_unmap_threshold = MUNMAP_THRESHOLD;
 STATIC int GC_num_unmapped_regions = 0;
 
-/* Return number of unmapped regions if the block h is changed      */
-/* from its current state of mapped/unmapped to the opposite state. */
-STATIC int GC_calc_num_unmapped_regions(struct hblk *h, hdr *hhdr)
+/* Return the change in number of unmapped regions if the block h swaps */
+/* from its current state of mapped/unmapped to the opposite state.     */
+STATIC int GC_calc_num_unmapped_regions_delta(struct hblk *h, hdr *hhdr)
 {
     struct hblk * prev;
     struct hblk * next;
     GC_bool prev_unmapped = FALSE;
     GC_bool next_unmapped = FALSE;
-    int change;
+    int delta;
 
     prev = GC_get_block_ending_at(h);
     next = GC_next_block((struct hblk *) ((ptr_t)h + hhdr->hb_sz));
@@ -455,25 +455,25 @@ STATIC int GC_calc_num_unmapped_regions(struct hblk *h, hdr *hhdr)
     if (prev_unmapped && next_unmapped) {
       /* If h unmapped: merge two unmapped regions into one. */
       /* If h remapped: split one unmapped region into two.  */
-      change = IS_MAPPED(hhdr) ? -1 : +1;
+      delta = IS_MAPPED(hhdr) ? -1 : +1;
     } else if (prev_unmapped || next_unmapped) {
       /* If h unmapped: merge with prev or next unmapped region.    */
       /* If h remapped: reduce either prev or next unmapped region. */
       /* Either way, no change to the number of unmapped regions.   */
-      change = 0;
+      delta = 0;
     } else {
       /* If h unmapped: create an isolated unmapped region. */
       /* If h remapped: remove an isolated unmapped region. */
-      change = IS_MAPPED(hhdr) ? +1 : -1;
+      delta = IS_MAPPED(hhdr) ? +1 : -1;
     }
-    return GC_num_unmapped_regions + change;
+    return delta;
 }
 
 /* Update GC_num_unmapped_regions assuming the block h changes      */
 /* from its current state of mapped/unmapped to the opposite state. */
 GC_INLINE void GC_maintain_num_unmapped_regions(struct hblk *h, hdr *hhdr)
 {
-    GC_num_unmapped_regions = GC_calc_num_unmapped_regions(h, hhdr);
+    GC_num_unmapped_regions += GC_calc_num_unmapped_regions_delta(h, hhdr);
 }
 
 /* Unmap blocks that haven't been recently touched.  This is the only way */
@@ -505,11 +505,11 @@ GC_INNER void GC_unmap_old(void)
           /* Continue with unmapping the block only if it will not      */
           /* create too many unmapped regions, or if unmapping reduces  */
           /* the number of regions.                                     */
-          int count = GC_calc_num_unmapped_regions(h, hhdr);
-          if (count >= GC_UNMAPPED_REGIONS_SOFT_LIMIT
-              && count >= GC_num_unmapped_regions)
+          int delta = GC_calc_num_unmapped_regions_delta(h, hhdr);
+          int n = GC_num_unmapped_regions + delta;
+          if (delta >= 0 && n >= GC_UNMAPPED_REGIONS_SOFT_LIMIT)
             break;
-          GC_num_unmapped_regions = count;
+          GC_num_unmapped_regions = n;
           GC_unmap((ptr_t)h, (size_t)hhdr->hb_sz);
           hhdr -> hb_flags |= WAS_UNMAPPED;
         }
