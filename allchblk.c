@@ -471,7 +471,7 @@ STATIC int GC_calc_num_unmapped_regions(struct hblk *h, hdr *hhdr)
 
 /* Update GC_num_unmapped_regions assuming the block h changes      */
 /* from its current state of mapped/unmapped to the opposite state. */
-STATIC void GC_maintain_num_unmapped_regions(struct hblk *h, hdr *hhdr)
+GC_INLINE void GC_maintain_num_unmapped_regions(struct hblk *h, hdr *hhdr)
 {
     GC_num_unmapped_regions = GC_calc_num_unmapped_regions(h, hhdr);
 }
