@@ -425,7 +425,6 @@ STATIC void GC_add_to_fl(struct hblk *h, hdr *hhdr)
 #define GC_UNMAPPED_REGIONS_SOFT_LIMIT 16384
 
 GC_INNER int GC_unmap_threshold = MUNMAP_THRESHOLD;
-STATIC int GC_num_unmapped_regions = 0;
 
 /* Return the change in number of unmapped regions if the block h swaps */
 /* from its current state of mapped/unmapped to the opposite state.     */
