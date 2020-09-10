@@ -1861,7 +1861,7 @@ void GC_apply_to_all_blocks(void (*fn)(struct hblk *h, word client_data),
                         /* allocated heap block.                        */
 GC_INNER struct hblk * GC_next_used_block(struct hblk * h);
                         /* Return first in-use block >= h       */
-GC_INNER struct hblk * GC_next_block(struct hblk * h);
+GC_INNER struct hblk * GC_next_block(struct hblk * h, GC_bool allow_free);
                         /* Return next block >= h.  Returned block      */
                         /* is managed by GC, but may or may not be in   */
                         /* use.                                         */

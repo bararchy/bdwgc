@@ -336,43 +336,13 @@ void GC_apply_to_all_blocks(void (*fn)(struct hblk *h, word client_data),
 /* Return 0 if there is none.                           */
 GC_INNER struct hblk * GC_next_used_block(struct hblk *h)
 {
-    REGISTER bottom_index * bi;
-    REGISTER word j = ((word)h >> LOG_HBLKSIZE) & (BOTTOM_SZ-1);
-
-    GC_ASSERT(I_HOLD_LOCK());
-    GET_BI(h, bi);
-    if (bi == GC_all_nils) {
-        REGISTER word hi = (word)h >> (LOG_BOTTOM_SZ + LOG_HBLKSIZE);
-
-        bi = GC_all_bottom_indices;
-        while (bi != 0 && bi -> key < hi) bi = bi -> asc_link;
-        j = 0;
-    }
-    while(bi != 0) {
-        while (j < BOTTOM_SZ) {
-            hdr * hhdr = bi -> index[j];
-            if (IS_FORWARDING_ADDR_OR_NIL(hhdr)) {
-                j++;
-            } else {
-                if (!HBLK_IS_FREE(hhdr)) {
-                    return((struct hblk *)
-                              (((bi -> key << LOG_BOTTOM_SZ) + j)
-                               << LOG_HBLKSIZE));
-                } else {
-                    j += divHBLKSZ(hhdr -> hb_sz);
-                }
-            }
-        }
-        j = 0;
-        bi = bi -> asc_link;
-    }
-    return(0);
+    return GC_next_block(h, FALSE);
 }
 
-/* Get the next block whose address is at least h.              */
-/* Return 0 if there is none.                                   */
-/* Unlike GC_next_used_block, this may return a free block.     */
-GC_INNER struct hblk * GC_next_block(struct hblk *h)
+/* Get the next block whose address is at least h.                  */
+/* If allow_free is FALSE then the block must be used, not free.    */
+/* Return 0 if there is no such block.                              */
+GC_INNER struct hblk * GC_next_block(struct hblk *h, GC_bool allow_free)
 {
     REGISTER bottom_index * bi;
     REGISTER word j = ((word)h >> LOG_HBLKSIZE) & (BOTTOM_SZ-1);
@@ -392,9 +362,13 @@ GC_INNER struct hblk * GC_next_block(struct hblk *h)
             if (IS_FORWARDING_ADDR_OR_NIL(hhdr)) {
                 j++;
             } else {
-                return((struct hblk *)
-                          (((bi -> key << LOG_BOTTOM_SZ) + j)
-                           << LOG_HBLKSIZE));
+                if (allow_free || !HBLK_IS_FREE(hhdr)) {
+                    return((struct hblk *)
+                              (((bi -> key << LOG_BOTTOM_SZ) + j)
+                               << LOG_HBLKSIZE));
+                } else {
+                    j += divHBLKSZ(hhdr -> hb_sz);
+                }
             }
         }
         j = 0;
@@ -404,8 +378,8 @@ GC_INNER struct hblk * GC_next_block(struct hblk *h)
 }
 
 /* Get the last (highest address) block whose address is        */
-/* at most h.  Return 0 if there is none.                       */
-/* Unlike GC_next_used_block, this may return a free block.     */
+/* at most h. The block may be used or free.                    */
+/* Return 0 if there is no such block.                          */
 GC_INNER struct hblk * GC_prev_block(struct hblk *h)
 {
     bottom_index * bi;

@@ -437,7 +437,7 @@ STATIC int GC_calc_num_unmapped_regions_delta(struct hblk *h, hdr *hhdr)
     int delta;
 
     prev = GC_get_block_ending_at(h);
-    next = GC_next_block((struct hblk *) ((ptr_t)h + hhdr->hb_sz));
+    next = GC_next_block((struct hblk *) ((ptr_t)h + hhdr->hb_sz), TRUE);
     /* Ensure next is contiguous with h. */
     if ((ptr_t)next != GC_unmap_end((ptr_t)h, (size_t)hhdr->hb_sz)) {
       next = 0;
