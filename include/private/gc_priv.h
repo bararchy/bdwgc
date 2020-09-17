@@ -1410,12 +1410,13 @@ struct _GC_arrays {
                           /* atomic objects.                    */
 # ifdef USE_MUNMAP
 #   define GC_unmapped_bytes GC_arrays._unmapped_bytes
-#   define GC_num_unmapped_regions GC_arrays._num_unmapped_regions
     word _unmapped_bytes;
-    word _num_unmapped_regions;
+#   ifdef __linux__
+#     define GC_num_unmapped_regions GC_arrays._num_unmapped_regions
+      word _num_unmapped_regions;
+#   endif
 # else
 #   define GC_unmapped_bytes 0
-#   define GC_num_unmapped_regions 0
 # endif
   bottom_index * _all_nils;
 # define GC_scan_ptr GC_arrays._scan_ptr
